@@ -69,7 +69,12 @@ contract FruitStand {
             return 1;
         }
         else if (n > 1) {
-            return fib(n-2) + fib(n-1);
+            uint pre = 0;
+            uint cur = 1;
+            for (uint i = 2; i <= n; i++) {
+                (cur, pre) = (cur + pre, cur);
+            }
+            return cur;
         }
     }
 
