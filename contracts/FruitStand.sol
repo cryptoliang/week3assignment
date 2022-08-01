@@ -49,7 +49,7 @@ contract FruitStand {
         require(userStakes[msg.sender].startBlock != 0, "FruitStand: User have not staked");
         payout(msg.sender, userStakes[msg.sender]);
         water.transfer(msg.sender, userStakes[msg.sender].stakeAmount);
-        userStakes[msg.sender] = UserStake({startBlock : 0, stakeAmount : 0});
+        delete userStakes[msg.sender];
     }
 
     function payout(address user, UserStake memory stake) internal returns (uint8 errCode) {
