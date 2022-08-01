@@ -26,7 +26,7 @@ contract FruitStand {
     ERC20 immutable water;
     ERC20 immutable melon;
     mapping(address => UserStake) userStakes;
-    mapping(uint => uint) blocksToMultiplier;
+    uint[301] blocksToMultiplier;
 
     constructor(address _water, address _melon) {
         water = ERC20(_water);
