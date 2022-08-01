@@ -26,10 +26,12 @@ contract FruitStand {
     ERC20 immutable water;
     ERC20 immutable melon;
     mapping(address => UserStake) userStakes;
+    mapping(uint => uint) blocksToMultiplier;
 
     constructor(address _water, address _melon) {
         water = ERC20(_water);
         melon = ERC20(_melon);
+        fib(300);
     }
 
     function stake(uint _amount) external {
@@ -55,27 +57,19 @@ contract FruitStand {
         if (blockDelta > 300) {
             blockDelta = 300;
         }
-        uint multiplier = fib(blockDelta);
-        uint rewardAmount = multiplier * stake.stakeAmount;
+        uint rewardAmount = blocksToMultiplier[blockDelta] * stake.stakeAmount;
         melon.transfer(user, rewardAmount);
         return 0;
     }
 
-    function fib(uint n) public view returns (uint fn) {
-        if (n == 0) {
-            return 0;
-        }
-        else if (n == 1) {
-            return 1;
-        }
-        else if (n > 1) {
-            uint pre = 0;
-            uint cur = 1;
-            for (uint i = 2; i <= n; i++) {
-                (cur, pre) = (cur + pre, cur);
-            }
-            return cur;
+    function fib(uint n) private {
+        blocksToMultiplier[0] = 0;
+        blocksToMultiplier[1] = 1;
+        uint pre = 0;
+        uint cur = 1;
+        for (uint i = 2; i <= n; i++) {
+            (cur, pre) = (cur + pre, cur);
+            blocksToMultiplier[i] = cur;
         }
     }
-
 }
