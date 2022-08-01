@@ -26,12 +26,12 @@ contract FruitStand {
     ERC20 immutable water;
     ERC20 immutable melon;
     mapping(address => UserStake) userStakes;
-    uint[301] blocksToMultiplier;
+    uint[301] private blocksToMultiplier;
 
     constructor(address _water, address _melon) {
         water = ERC20(_water);
         melon = ERC20(_melon);
-        fib(300);
+        initializeMultipliers();
     }
 
     function stake(uint _amount) external {
@@ -63,12 +63,12 @@ contract FruitStand {
         return 0;
     }
 
-    function fib(uint n) private {
+    function initializeMultipliers() private {
         blocksToMultiplier[0] = 0;
         blocksToMultiplier[1] = 1;
         uint pre = 0;
         uint cur = 1;
-        for (uint i = 2; i <= n; i++) {
+        for (uint i = 2; i <= 300; i++) {
             (cur, pre) = (cur + pre, cur);
             blocksToMultiplier[i] = cur;
         }
