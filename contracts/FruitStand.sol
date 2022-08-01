@@ -46,9 +46,10 @@ contract FruitStand {
     }
 
     function unstake() external {
-        require(userStakes[msg.sender].startBlock != 0, "FruitStand: User have not staked");
-        payout(msg.sender, userStakes[msg.sender]);
-        water.transfer(msg.sender, userStakes[msg.sender].stakeAmount);
+        UserStake memory userStake = userStakes[msg.sender];
+        require(userStake.startBlock != 0, "FruitStand: User have not staked");
+        payout(msg.sender, userStake);
+        water.transfer(msg.sender, userStake.stakeAmount);
         delete userStakes[msg.sender];
     }
 
