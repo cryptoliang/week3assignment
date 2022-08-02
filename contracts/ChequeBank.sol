@@ -42,16 +42,18 @@ contract ChequeBank {
     }
 
     function withdraw(uint amount) external {
+        withdrawTo(amount, payable(msg.sender));
+    }
+
+    function withdrawTo(uint amount, address payable recipient) public {
         if (amount == 0) revert ZeroAmount();
         uint balance = addressToBalance[msg.sender];
         if (amount > balance) revert NotEnoughBalance(balance, amount);
 
         addressToBalance[msg.sender] = balance - amount;
-        (bool ok,) = msg.sender.call{value : amount}("");
+        (bool ok,) = recipient.call{value : amount}("");
         if (!ok) revert TransferFailed();
     }
-
-    function withdrawTo(uint amount, address payable recipient) external {}
 
     function redeem(Cheque memory chequeData) external {}
 

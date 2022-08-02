@@ -1,6 +1,9 @@
 import {ethers} from "hardhat";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
+import {ChequeBank} from "../typechain-types";
+import {BigNumber} from "ethers";
+import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 
 describe("ChequeBank", function () {
     async function deployFixture() {
@@ -26,11 +29,14 @@ describe("ChequeBank", function () {
     });
 
     describe("withdraw", function () {
-        it("should withdraw ethers", async function () {
-            const {chequeBank, deployer} = await loadFixture(deployFixture);
-            const depositAmount = ethers.utils.parseEther("1");
+        let chequeBank: ChequeBank, deployer: SignerWithAddress, depositAmount: BigNumber
+        beforeEach(async function () {
+            ({chequeBank, deployer} = await loadFixture(deployFixture));
+            depositAmount = ethers.utils.parseEther("1");
             await chequeBank.deposit({value: depositAmount});
+        })
 
+        it("should withdraw ethers", async function () {
             const withdrawAmount = ethers.utils.parseEther("0.8");
             let deployerBeforeBalance = await ethers.provider.getBalance(deployer.address);
 
@@ -47,16 +53,51 @@ describe("ChequeBank", function () {
         });
 
         it("should revert if withdraw 0 ether", async function () {
-            const {chequeBank} = await loadFixture(deployFixture);
             await expect(chequeBank.withdraw(0))
                 .to.be.revertedWithCustomError(chequeBank, "ZeroAmount");
         });
 
         it("should revert if withdraw more than account balance", async function () {
-            const {chequeBank} = await loadFixture(deployFixture);
-            await expect(chequeBank.withdraw(1))
+            let withdrawAmount = depositAmount.add(1);
+            await expect(chequeBank.withdraw(withdrawAmount))
                 .to.be.revertedWithCustomError(chequeBank, "NotEnoughBalance")
-                .withArgs(0, 1);
+                .withArgs(depositAmount, withdrawAmount);
+        });
+    });
+
+    describe("withdrawTo", function () {
+        let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress, depositAmount: BigNumber
+        beforeEach(async function () {
+            ({chequeBank, deployer, userA} = await loadFixture(deployFixture));
+            depositAmount = ethers.utils.parseEther("1");
+            await chequeBank.deposit({value: depositAmount});
+        })
+
+        it("should withdraw ethers", async function () {
+            const withdrawAmount = ethers.utils.parseEther("0.8");
+
+            let userABeforeBalance = await ethers.provider.getBalance(userA.address);
+
+            await chequeBank.withdrawTo(withdrawAmount, userA.address);
+
+            let userAAfterBalance = await ethers.provider.getBalance(userA.address);
+
+            const leftAmount = depositAmount.sub(withdrawAmount);
+            expect(await ethers.provider.getBalance(chequeBank.address)).equal(leftAmount);
+            expect(await chequeBank.addressToBalance(deployer.address)).equal(leftAmount);
+            expect(userAAfterBalance.sub(userABeforeBalance)).equal(withdrawAmount);
+        });
+
+        it("should revert if withdraw 0 ether", async function () {
+            await expect(chequeBank.withdrawTo(0, userA.address))
+                .to.be.revertedWithCustomError(chequeBank, "ZeroAmount");
+        });
+
+        it("should revert if withdraw more than account balance", async function () {
+            let withdrawAmount = depositAmount.add(1);
+            await expect(chequeBank.withdrawTo(withdrawAmount, userA.address))
+                .to.be.revertedWithCustomError(chequeBank, "NotEnoughBalance")
+                .withArgs(depositAmount, withdrawAmount);
         });
     });
 })
