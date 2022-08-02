@@ -1,7 +1,8 @@
-# Sample Hardhat Project
+# Week 2 Assignment
 
 ## Task 1: Smart Contract Optimization
 Gas cost before optimization (unstake after 10 blocks)
+```
 ·---------------------------|----------------------------|-------------|-----------------------------·
 |    Solc version: 0.8.9    ·  Optimizer enabled: false  ·  Runs: 200  ·  Block limit: 30000000 gas  │
 ····························|····························|·············|······························
@@ -25,6 +26,7 @@ Gas cost before optimization (unstake after 10 blocks)
 ····························|··············|·············|·············|···············|··············
 |  WATER                    ·           -  ·          -  ·    1176356  ·        3.9 %  ·      33.75  │
 ·---------------------------|--------------|-------------|-------------|---------------|-------------·
+```
 
 Do the following changes 
 - Use immutable to store the contract addresses of Water and Melon .
@@ -36,6 +38,7 @@ Do the following changes
 
 Gas cost after optimization (unstake after 10 blocks)
 
+```
 ·---------------------------|----------------------------|-------------|-----------------------------·
 |    Solc version: 0.8.9    ·  Optimizer enabled: false  ·  Runs: 200  ·  Block limit: 30000000 gas  │
 ····························|····························|·············|······························
@@ -59,3 +62,4 @@ Gas cost after optimization (unstake after 10 blocks)
 ····························|··············|·············|·············|···············|··············
 |  WATER                    ·           -  ·          -  ·    1176356  ·        3.9 %  ·      19.64  │
 ·---------------------------|--------------|-------------|-------------|---------------|-------------·
+```
