@@ -198,11 +198,6 @@ describe("ChequeBank", function () {
                 .withArgs(currBlock + 1)
         });
 
-        it("should revert if redeem by another user", async function () {
-            await expect(chequeBank.redeem(cheque))
-                .to.be.revertedWithCustomError(chequeBank, "Unauthorized")
-        });
-
         it("should revert if the cheque is already redeemed", async function () {
             await chequeBank.connect(userA).redeem(cheque)
             await expect(chequeBank.connect(userA).redeem(cheque))

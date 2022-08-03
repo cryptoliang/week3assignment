@@ -7,7 +7,6 @@ error TransferFailed();
 error NotEnoughBalance(uint balance, uint need);
 error InvalidSignature();
 error InvalidRedeemTiming(uint currentBlockNumber);
-error Unauthorized();
 error RevokedCheque();
 error AlreadyRedeemed();
 error AlreadySignedOver();
@@ -60,7 +59,6 @@ contract ChequeBank {
 
     function redeem(Cheque memory chequeData) external {
         ChequeInfo memory chequeInfo = chequeData.chequeInfo;
-        if (msg.sender != chequeInfo.payee) revert Unauthorized();
         if (!isValidRedeemTiming(chequeInfo)) revert InvalidRedeemTiming(block.number);
         if (!isValidChequeSig(chequeData)) revert InvalidSignature();
         if (revocations[chequeInfo.chequeId][chequeInfo.payer]) revert RevokedCheque();
