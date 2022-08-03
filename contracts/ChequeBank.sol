@@ -62,7 +62,7 @@ contract ChequeBank {
         ChequeInfo memory chequeInfo = chequeData.chequeInfo;
         if (msg.sender != chequeInfo.payee) revert Unauthorized();
         if (!isValidRedeemTiming(chequeInfo)) revert InvalidRedeemTiming(block.number);
-        if (!isValidSig(chequeData)) revert InvalidSignature();
+        if (!isValidChequeSig(chequeData)) revert InvalidSignature();
         if (revocations[chequeInfo.chequeId][chequeInfo.payer]) revert RevokedCheque();
         if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
         if (signOvers[chequeInfo.chequeId]) revert SignedOverCheque();
@@ -78,6 +78,7 @@ contract ChequeBank {
     }
 
     function notifySignOver(SignOver memory signOverData) external {
+        if (!isValidSignOverSig(signOverData)) revert InvalidSignature();
         signOvers[signOverData.signOverInfo.chequeId] = true;
     }
 
@@ -109,12 +110,20 @@ contract ChequeBank {
         return true;
     }
 
-    function isValidSig(Cheque memory cheque) private view returns (bool) {
+    function isValidChequeSig(Cheque memory cheque) private view returns (bool) {
         ChequeInfo memory chequeInfo = cheque.chequeInfo;
         bytes memory encodedData = abi.encodePacked(chequeInfo.chequeId, chequeInfo.payer, chequeInfo.payee,
             chequeInfo.amount, address(this), chequeInfo.validFrom, chequeInfo.validThru);
         bytes32 hash = prefixed(keccak256(encodedData));
         return recoverSigner(hash, cheque.sig) == chequeInfo.payer;
+    }
+
+    function isValidSignOverSig(SignOver memory signOver) private view returns (bool) {
+        SignOverInfo memory info = signOver.signOverInfo;
+        bytes4 MAGIC_NUMBER = 0xFFFFDEAD;
+        bytes memory encodedData = abi.encodePacked(MAGIC_NUMBER, info.counter, info.chequeId, info.oldPayee, info.newPayee);
+        bytes32 hash = prefixed(keccak256(encodedData));
+        return recoverSigner(hash, signOver.sig) == info.oldPayee;
     }
 
     function splitSignature(bytes memory sig) private pure returns (uint8 v, bytes32 r, bytes32 s) {

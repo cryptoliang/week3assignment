@@ -258,5 +258,14 @@ describe("ChequeBank", function () {
             await expect(chequeBank.connect(userA).redeem(cheque))
                 .to.be.revertedWithCustomError(chequeBank, "SignedOverCheque")
         });
+
+        it("should revert if signature is invalid", async () => {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOver = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            // change the new payee to make the signature invalid
+            signOver.signOverInfo.newPayee = userC.address;
+            await expect(chequeBank.notifySignOver(signOver))
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignature")
+        });
     });
 })
