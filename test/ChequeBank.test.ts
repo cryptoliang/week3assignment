@@ -1,4 +1,4 @@
-import {ethers} from "hardhat";
+import {ethers, network} from "hardhat";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import {ChequeBank} from "../typechain-types";
@@ -16,6 +16,10 @@ function createCheque(amount: BigNumberish, validFrom: number, validThru: number
     );
     let sig = signer.signMessage(ethers.utils.arrayify(hashData));
     return {chequeInfo, sig}
+}
+
+async function mineNBlocks(n: Number) {
+    await network.provider.send("hardhat_mine", ["0x" + n.toString(16)]);
 }
 
 describe("ChequeBank", function () {
@@ -115,17 +119,17 @@ describe("ChequeBank", function () {
     });
 
     describe("redeem", () => {
-        let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress, depositAmount: BigNumber
+        let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress, depositAmount: BigNumber,
+            cheque: ChequeBank.ChequeStruct, chequeAmount: BigNumber
         beforeEach(async function () {
             ({chequeBank, deployer, userA} = await loadFixture(deployFixture));
             depositAmount = ethers.utils.parseEther("1");
             await chequeBank.deposit({value: depositAmount});
+            chequeAmount = ethers.utils.parseEther("0.2");
+            cheque = createCheque(chequeAmount, 0, 0, deployer.address, userA.address, chequeBank.address, deployer);
         })
 
         it("should redeem the valid cheque", async function () {
-            const chequeAmount = ethers.utils.parseEther("0.2");
-            const cheque = createCheque(chequeAmount, 0, 2, deployer.address, userA.address, chequeBank.address, deployer);
-
             let userABeforeBalance = await ethers.provider.getBalance(userA.address);
 
             let tx = await chequeBank.connect(userA).redeem(cheque);
@@ -141,14 +145,36 @@ describe("ChequeBank", function () {
         });
 
         it("should revert if cheque signature is invalid", async function () {
-            const chequeAmount = ethers.utils.parseEther("0.2");
-            const cheque = createCheque(chequeAmount, 0, 2, deployer.address, userA.address, chequeBank.address, deployer);
-
             // change the amount to make the signature invalid
             cheque.chequeInfo.amount = chequeAmount.add(1);
 
             await expect(chequeBank.connect(userA).redeem(cheque))
                 .to.be.revertedWithCustomError(chequeBank, "InvalidSignature")
+        });
+
+        it("should revert if current block number is over the validThru", async function () {
+            let currBlock = await chequeBank.provider.getBlockNumber();
+            cheque = createCheque(chequeAmount, 0, currBlock + 5, deployer.address, userA.address, chequeBank.address, deployer);
+
+            await mineNBlocks(5);
+
+            await expect(chequeBank.connect(userA).redeem(cheque))
+                .to.be.revertedWithCustomError(chequeBank, "InvalidRedeemTiming")
+                .withArgs(currBlock + 6)
+        });
+
+        it("should revert if current block number is under the validFrom", async function () {
+            let currBlock = await chequeBank.provider.getBlockNumber();
+            cheque = createCheque(chequeAmount, currBlock + 5, currBlock + 15, deployer.address, userA.address, chequeBank.address, deployer);
+
+            await expect(chequeBank.connect(userA).redeem(cheque))
+                .to.be.revertedWithCustomError(chequeBank, "InvalidRedeemTiming")
+                .withArgs(currBlock + 1)
+        });
+
+        it("should revert if redeem by another user", async function () {
+            await expect(chequeBank.redeem(cheque))
+                .to.be.revertedWithCustomError(chequeBank, "Unauthorized")
         });
     });
 })

@@ -6,6 +6,8 @@ error ZeroAmount();
 error TransferFailed();
 error NotEnoughBalance(uint balance, uint need);
 error InvalidSignature();
+error InvalidRedeemTiming(uint currentBlockNumber);
+error Unauthorized();
 
 contract ChequeBank {
 
@@ -51,8 +53,11 @@ contract ChequeBank {
     }
 
     function redeem(Cheque memory chequeData) external {
-        if (!isValidSig(chequeData)) revert InvalidSignature();
         ChequeInfo memory chequeInfo = chequeData.chequeInfo;
+        if (msg.sender != chequeInfo.payee) revert Unauthorized();
+        if (!isValidRedeemTiming(chequeInfo)) revert InvalidRedeemTiming(block.number);
+        if (!isValidSig(chequeData)) revert InvalidSignature();
+
         _withdraw(chequeInfo.amount, chequeInfo.payer, payable(chequeInfo.payee));
     }
 
@@ -81,6 +86,13 @@ contract ChequeBank {
         addressToBalance[from] = balance - amount;
         (bool ok,) = to.call{value : amount}("");
         if (!ok) revert TransferFailed();
+    }
+
+    function isValidRedeemTiming(ChequeInfo memory chequeInfo) private view returns (bool) {
+        if (chequeInfo.validFrom > chequeInfo.validThru) return false;
+        if (chequeInfo.validThru != 0 && block.number > chequeInfo.validThru) return false;
+        if (block.number < chequeInfo.validFrom) return false;
+        return true;
     }
 
     function isValidSig(Cheque memory cheque) private view returns (bool) {
