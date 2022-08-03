@@ -175,7 +175,7 @@ describe("ChequeBank", function () {
             await mineNBlocks(5);
             let currBlock = await chequeBank.provider.getBlockNumber();
             cheque = createCheque(chequeAmount, currBlock - 1, 0, deployer.address, userA.address, chequeBank.address, deployer);
-            await chequeBank.connect(userA).redeem(cheque)
+            await expect(chequeBank.connect(userA).redeem(cheque)).to.not.be.reverted;
         });
 
         it("should revert if current block number is over the validThru", async function () {
@@ -229,7 +229,7 @@ describe("ChequeBank", function () {
 
         it("should not affect redeem if NOT revoked by payer", async function () {
             await chequeBank.connect(userA).revoke(cheque.chequeInfo.chequeId)
-            await chequeBank.connect(userA).redeem(cheque)
+            await expect(chequeBank.connect(userA).redeem(cheque)).to.not.be.reverted;
         })
 
         it("should revert if the cheque is already redeemed", async function () {
@@ -263,14 +263,14 @@ describe("ChequeBank", function () {
             let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
             let signOver = createSignOver(1, chequeId, userB.address, userC.address, userB);
             await chequeBank.notifySignOver(signOver);
-            await chequeBank.connect(userA).redeem(cheque);
+            await expect(chequeBank.connect(userA).redeem(cheque)).to.not.be.reverted;
         });
 
         it("redeem() should success if the reported sign-over's old payee is equal to cheque's payee but the counter is not 1", async () => {
             let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
             let signOver = createSignOver(2, chequeId, userA.address, userB.address, userA);
             await chequeBank.notifySignOver(signOver);
-            await chequeBank.connect(userA).redeem(cheque);
+            await expect(chequeBank.connect(userA).redeem(cheque)).to.not.be.reverted;
         });
 
         it("should revert if signature is invalid", async () => {
@@ -294,7 +294,7 @@ describe("ChequeBank", function () {
             let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
             let signOver = createSignOver(1, chequeId, userA.address, userB.address, userA);
             await chequeBank.connect(userB).revoke(chequeId);
-            await chequeBank.notifySignOver(signOver);
+            await expect(chequeBank.notifySignOver(signOver)).to.not.be.reverted;
         });
 
         it("should revert if the sign-over has same counter and old payee with a reported sign-over", async () => {
@@ -304,6 +304,14 @@ describe("ChequeBank", function () {
             await chequeBank.notifySignOver(signOver2);
             await expect(chequeBank.notifySignOver(signOver1))
                 .to.be.revertedWithCustomError(chequeBank, "AlreadySignedOver");
+        });
+
+        it("should revert if the cheque is already redeemed", async () => {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOver = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            await chequeBank.connect(userA).redeem(cheque);
+            await expect(chequeBank.notifySignOver(signOver))
+                .to.be.revertedWithCustomError(chequeBank, "AlreadyRedeemed")
         });
     });
 })

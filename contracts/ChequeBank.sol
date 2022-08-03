@@ -80,6 +80,7 @@ contract ChequeBank {
     function notifySignOver(SignOver memory signOverData) external {
         SignOverInfo memory info = signOverData.signOverInfo;
         if (revocations[info.chequeId][info.oldPayee]) revert RevokedCheque();
+        if (redemptions[info.chequeId]) revert AlreadyRedeemed();
         if (!isValidSignOverSig(signOverData)) revert InvalidSignature();
         if (signOvers[info.chequeId][info.counter][info.oldPayee]) revert AlreadySignedOver();
 
