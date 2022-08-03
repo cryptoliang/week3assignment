@@ -89,7 +89,7 @@ contract ChequeBank {
     }
 
     function isValidRedeemTiming(ChequeInfo memory chequeInfo) private view returns (bool) {
-        if (chequeInfo.validFrom > chequeInfo.validThru) return false;
+        if (chequeInfo.validThru != 0 && chequeInfo.validFrom > chequeInfo.validThru) return false;
         if (chequeInfo.validThru != 0 && block.number > chequeInfo.validThru) return false;
         if (block.number < chequeInfo.validFrom) return false;
         return true;

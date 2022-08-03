@@ -19,7 +19,7 @@ function createCheque(amount: BigNumberish, validFrom: number, validThru: number
 }
 
 async function mineNBlocks(n: Number) {
-    await network.provider.send("hardhat_mine", ["0x" + n.toString(16)]);
+    await network.provider.send("hardhat_mine", ["0x" + n.toString(16), "0x0"]);
 }
 
 describe("ChequeBank", function () {
@@ -122,7 +122,7 @@ describe("ChequeBank", function () {
         let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress, depositAmount: BigNumber,
             cheque: ChequeBank.ChequeStruct, chequeAmount: BigNumber
         beforeEach(async function () {
-            ({chequeBank, deployer, userA} = await loadFixture(deployFixture));
+            ({chequeBank, deployer, userA} = await deployFixture());
             depositAmount = ethers.utils.parseEther("1");
             await chequeBank.deposit({value: depositAmount});
             chequeAmount = ethers.utils.parseEther("0.2");
@@ -152,9 +152,25 @@ describe("ChequeBank", function () {
                 .to.be.revertedWithCustomError(chequeBank, "InvalidSignature")
         });
 
+        it("should revert if cheque's validFrom is over validThru and validThru is not 0", async function () {
+            await mineNBlocks(5);
+            let currBlock = await chequeBank.provider.getBlockNumber();
+            cheque = createCheque(chequeAmount, currBlock - 1, currBlock - 2, deployer.address, userA.address, chequeBank.address, deployer);
+            await expect(chequeBank.connect(userA).redeem(cheque))
+                .to.be.revertedWithCustomError(chequeBank, "InvalidRedeemTiming")
+                .withArgs(currBlock + 1)
+        });
+
+        it("should not revert if cheque's validFrom is over validThru but validThru is 0", async function () {
+            await mineNBlocks(5);
+            let currBlock = await chequeBank.provider.getBlockNumber();
+            cheque = createCheque(chequeAmount, currBlock - 1, 0, deployer.address, userA.address, chequeBank.address, deployer);
+            await chequeBank.connect(userA).redeem(cheque)
+        });
+
         it("should revert if current block number is over the validThru", async function () {
             let currBlock = await chequeBank.provider.getBlockNumber();
-            cheque = createCheque(chequeAmount, 0, currBlock + 5, deployer.address, userA.address, chequeBank.address, deployer);
+            cheque = createCheque(chequeAmount, 0, currBlock, deployer.address, userA.address, chequeBank.address, deployer);
 
             await mineNBlocks(5);
 
