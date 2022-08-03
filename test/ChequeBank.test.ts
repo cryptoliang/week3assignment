@@ -2,7 +2,7 @@ import {ethers, network} from "hardhat";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import {ChequeBank} from "../typechain-types";
-import {BigNumber, BigNumberish} from "ethers";
+import {BigNumber, BigNumberish, BytesLike, Signer} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 
 function createCheque(amount: BigNumberish, validFrom: number, validThru: number, payer: string, payee: string,
@@ -16,6 +16,16 @@ function createCheque(amount: BigNumberish, validFrom: number, validThru: number
     );
     let sig = signer.signMessage(ethers.utils.arrayify(hashData));
     return {chequeInfo, sig}
+}
+
+function createSignOver(counter: number, chequeId: BytesLike, oldPayee: string, newPayee: string, signer: Signer) {
+    let signOverInfo = {counter, chequeId, oldPayee, newPayee}
+    let hashData = ethers.utils.solidityKeccak256(
+        ["bytes4", "uint8", "bytes32", "address", "address"],
+        [0xFFFFDEAD, counter, chequeId, oldPayee, newPayee]
+    );
+    let sig = signer.signMessage(ethers.utils.arrayify(hashData));
+    return {signOverInfo, sig}
 }
 
 async function mineNBlocks(n: Number) {
@@ -201,13 +211,13 @@ describe("ChequeBank", function () {
     });
 
     describe("revoke", () => {
-        let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress, depositAmount: BigNumber,
-            cheque: ChequeBank.ChequeStruct, chequeAmount: BigNumber
+        let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress,
+            cheque: ChequeBank.ChequeStruct
         beforeEach(async function () {
             ({chequeBank, deployer, userA} = await deployFixture());
-            depositAmount = ethers.utils.parseEther("1");
+            const depositAmount = ethers.utils.parseEther("1");
             await chequeBank.deposit({value: depositAmount});
-            chequeAmount = ethers.utils.parseEther("0.2");
+            const chequeAmount = ethers.utils.parseEther("0.2");
             cheque = createCheque(chequeAmount, 0, 0, deployer.address, userA.address, chequeBank.address, deployer);
         })
 
@@ -228,4 +238,25 @@ describe("ChequeBank", function () {
                 .to.be.revertedWithCustomError(chequeBank, "AlreadyRedeemed")
         })
     })
+
+    describe("notifySignOver", () => {
+        let chequeBank: ChequeBank, deployer: SignerWithAddress, cheque: ChequeBank.ChequeStruct,
+            userA: SignerWithAddress, userB: SignerWithAddress, userC: SignerWithAddress
+
+        beforeEach(async function () {
+            ({chequeBank, deployer, userA, userB, userC} = await deployFixture());
+            const depositAmount = ethers.utils.parseEther("1");
+            await chequeBank.deposit({value: depositAmount});
+            const chequeAmount = ethers.utils.parseEther("0.2");
+            cheque = createCheque(chequeAmount, 0, 0, deployer.address, userA.address, chequeBank.address, deployer);
+        })
+
+        it("should refuse redemption after notify sign-over", async () => {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOver = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            await chequeBank.notifySignOver(signOver);
+            await expect(chequeBank.connect(userA).redeem(cheque))
+                .to.be.revertedWithCustomError(chequeBank, "SignedOverCheque")
+        });
+    });
 })
