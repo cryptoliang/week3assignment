@@ -85,10 +85,13 @@ contract ChequeBank {
         signOvers[info.chequeId][info.counter][info.oldPayee] = true;
     }
 
-    function redeemSignOver(
-        Cheque memory chequeData,
-        SignOver[] memory signOverData
-    ) external {}
+    function redeemSignOver(Cheque memory chequeData, SignOver[] memory signOverData) external {
+        ChequeInfo memory chequeInfo = chequeData.chequeInfo;
+        if (!isValidRedeemTiming(chequeInfo)) revert InvalidRedeemTiming(block.number);
+        if (!isValidChequeSig(chequeData)) revert InvalidSignature();
+        if (revocations[chequeInfo.chequeId][chequeInfo.payer]) revert RevokedCheque();
+        if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
+    }
 
     function isChequeValid(
         address payee,

@@ -309,4 +309,59 @@ describe("ChequeBank", function () {
                 .to.be.revertedWithCustomError(chequeBank, "AlreadyRedeemed")
         });
     });
+
+    describe("redeemSignOver", () => {
+        let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress, depositAmount: BigNumber,
+            cheque: ChequeBank.ChequeStruct, chequeAmount: BigNumber, userB: SignerWithAddress, userC: SignerWithAddress
+        beforeEach(async function () {
+            ({chequeBank, deployer, userA, userB, userC} = await deployFixture());
+            depositAmount = ethers.utils.parseEther("1");
+            await chequeBank.deposit({value: depositAmount});
+            chequeAmount = ethers.utils.parseEther("0.2");
+            cheque = createCheque(chequeAmount, 0, 0, deployer.address, userA.address, chequeBank.address, deployer);
+        })
+
+        it("should revert if cheque signature is invalid", async function () {
+            // change the amount to make the signature invalid
+            cheque.chequeInfo.amount = chequeAmount.add(1);
+
+            await expect(chequeBank.redeemSignOver(cheque, []))
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignature")
+        });
+
+        it("should revert if cheque's validFrom is over validThru and validThru is not 0", async function () {
+            await mineNBlocks(5);
+            let currBlock = await chequeBank.provider.getBlockNumber();
+            cheque = createCheque(chequeAmount, currBlock - 1, currBlock - 2, deployer.address, userA.address, chequeBank.address, deployer);
+            await expect(chequeBank.redeemSignOver(cheque, []))
+                .to.be.revertedWithCustomError(chequeBank, "InvalidRedeemTiming")
+                .withArgs(currBlock + 1)
+        });
+
+        it("should revert if current block number is over the validThru", async function () {
+            let currBlock = await chequeBank.provider.getBlockNumber();
+            cheque = createCheque(chequeAmount, 0, currBlock, deployer.address, userA.address, chequeBank.address, deployer);
+
+            await mineNBlocks(5);
+
+            await expect(chequeBank.redeemSignOver(cheque, []))
+                .to.be.revertedWithCustomError(chequeBank, "InvalidRedeemTiming")
+                .withArgs(currBlock + 6)
+        });
+
+        it("should revert if current block number is under the validFrom", async function () {
+            let currBlock = await chequeBank.provider.getBlockNumber();
+            cheque = createCheque(chequeAmount, currBlock + 5, currBlock + 15, deployer.address, userA.address, chequeBank.address, deployer);
+
+            await expect(chequeBank.redeemSignOver(cheque, []))
+                .to.be.revertedWithCustomError(chequeBank, "InvalidRedeemTiming")
+                .withArgs(currBlock + 1)
+        });
+
+        it("should revert if the cheque is already redeemed", async function () {
+            await chequeBank.connect(userA).redeem(cheque)
+            await expect(chequeBank.redeemSignOver(cheque, []))
+                .to.be.revertedWithCustomError(chequeBank, "AlreadyRedeemed")
+        });
+    });
 })
