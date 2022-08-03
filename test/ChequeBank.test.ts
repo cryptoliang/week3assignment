@@ -139,5 +139,16 @@ describe("ChequeBank", function () {
             expect(await chequeBank.addressToBalance(deployer.address)).equal(leftAmount);
             expect(userAAfterBalance.add(transactionFee).sub(userABeforeBalance)).equal(chequeAmount);
         });
+
+        it("should revert if cheque signature is invalid", async function () {
+            const chequeAmount = ethers.utils.parseEther("0.2");
+            const cheque = createCheque(chequeAmount, 0, 2, deployer.address, userA.address, chequeBank.address, deployer);
+
+            // change the amount to make the signature invalid
+            cheque.chequeInfo.amount = chequeAmount.add(1);
+
+            await expect(chequeBank.connect(userA).redeem(cheque))
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignature")
+        });
     });
 })

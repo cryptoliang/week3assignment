@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 error ZeroAmount();
 error TransferFailed();
 error NotEnoughBalance(uint balance, uint need);
+error InvalidSignature();
 
 contract ChequeBank {
 
@@ -50,6 +51,7 @@ contract ChequeBank {
     }
 
     function redeem(Cheque memory chequeData) external {
+        if (!isValidSig(chequeData)) revert InvalidSignature();
         ChequeInfo memory chequeInfo = chequeData.chequeInfo;
         _withdraw(chequeInfo.amount, chequeInfo.payer, payable(chequeInfo.payee));
     }
@@ -79,5 +81,39 @@ contract ChequeBank {
         addressToBalance[from] = balance - amount;
         (bool ok,) = to.call{value : amount}("");
         if (!ok) revert TransferFailed();
+    }
+
+    function isValidSig(Cheque memory cheque) private view returns (bool) {
+        ChequeInfo memory chequeInfo = cheque.chequeInfo;
+        bytes memory encodedData = abi.encodePacked(chequeInfo.chequeId, chequeInfo.payer, chequeInfo.payee,
+            chequeInfo.amount, address(this), chequeInfo.validFrom, chequeInfo.validThru);
+        bytes32 hash = prefixed(keccak256(encodedData));
+        return recoverSigner(hash, cheque.sig) == chequeInfo.payer;
+    }
+
+    function splitSignature(bytes memory sig) private pure returns (uint8 v, bytes32 r, bytes32 s) {
+        require(sig.length == 65);
+
+        assembly {
+        // first 32 bytes, after the length prefix.
+            r := mload(add(sig, 32))
+        // second 32 bytes.
+            s := mload(add(sig, 64))
+        // final byte (first byte of the next 32 bytes).
+            v := byte(0, mload(add(sig, 96)))
+        }
+
+        return (v, r, s);
+    }
+
+    function recoverSigner(bytes32 message, bytes memory sig) private pure returns (address) {
+        (uint8 v, bytes32 r, bytes32 s) = splitSignature(sig);
+
+        return ecrecover(message, v, r, s);
+    }
+
+    /// builds a prefixed hash to mimic the behavior of eth_sign.
+    function prefixed(bytes32 hash) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
     }
 }
