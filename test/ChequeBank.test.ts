@@ -2,8 +2,21 @@ import {ethers} from "hardhat";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import {ChequeBank} from "../typechain-types";
-import {BigNumber} from "ethers";
+import {BigNumber, BigNumberish} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+
+function createCheque(amount: BigNumberish, validFrom: number, validThru: number, payer: string, payee: string,
+                      contract: string, signer: SignerWithAddress) {
+    let chequeId = ethers.utils.randomBytes(32);
+    let chequeInfo = {chequeId, amount, validFrom, validThru, payee, payer}
+
+    let hashData = ethers.utils.solidityKeccak256(
+        ["bytes32", "address", "address", "uint", "address", "uint32", "uint32"],
+        [chequeId, payer, payee, amount, contract, validFrom, validThru]
+    );
+    let sig = signer.signMessage(ethers.utils.arrayify(hashData));
+    return {chequeInfo, sig}
+}
 
 describe("ChequeBank", function () {
     async function deployFixture() {
@@ -98,6 +111,33 @@ describe("ChequeBank", function () {
             await expect(chequeBank.withdrawTo(withdrawAmount, userA.address))
                 .to.be.revertedWithCustomError(chequeBank, "NotEnoughBalance")
                 .withArgs(depositAmount, withdrawAmount);
+        });
+    });
+
+    describe("redeem", () => {
+        let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress, depositAmount: BigNumber
+        beforeEach(async function () {
+            ({chequeBank, deployer, userA} = await loadFixture(deployFixture));
+            depositAmount = ethers.utils.parseEther("1");
+            await chequeBank.deposit({value: depositAmount});
+        })
+
+        it("should redeem the valid cheque", async function () {
+            const chequeAmount = ethers.utils.parseEther("0.2");
+            const cheque = createCheque(chequeAmount, 0, 2, deployer.address, userA.address, chequeBank.address, deployer);
+
+            let userABeforeBalance = await ethers.provider.getBalance(userA.address);
+
+            let tx = await chequeBank.connect(userA).redeem(cheque);
+            let txReceipt = await tx.wait(1);
+
+            let transactionFee = txReceipt.gasUsed.mul(txReceipt.effectiveGasPrice);
+            let userAAfterBalance = await ethers.provider.getBalance(userA.address);
+
+            const leftAmount = depositAmount.sub(chequeAmount);
+            expect(await ethers.provider.getBalance(chequeBank.address)).equal(leftAmount);
+            expect(await chequeBank.addressToBalance(deployer.address)).equal(leftAmount);
+            expect(userAAfterBalance.add(transactionFee).sub(userABeforeBalance)).equal(chequeAmount);
         });
     });
 })

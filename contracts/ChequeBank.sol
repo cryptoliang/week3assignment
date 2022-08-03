@@ -46,16 +46,13 @@ contract ChequeBank {
     }
 
     function withdrawTo(uint amount, address payable recipient) public {
-        if (amount == 0) revert ZeroAmount();
-        uint balance = addressToBalance[msg.sender];
-        if (amount > balance) revert NotEnoughBalance(balance, amount);
-
-        addressToBalance[msg.sender] = balance - amount;
-        (bool ok,) = recipient.call{value : amount}("");
-        if (!ok) revert TransferFailed();
+        _withdraw(amount, msg.sender, recipient);
     }
 
-    function redeem(Cheque memory chequeData) external {}
+    function redeem(Cheque memory chequeData) external {
+        ChequeInfo memory chequeInfo = chequeData.chequeInfo;
+        _withdraw(chequeInfo.amount, chequeInfo.payer, payable(chequeInfo.payee));
+    }
 
     function revoke(bytes32 chequeId) external {}
 
@@ -73,4 +70,14 @@ contract ChequeBank {
         Cheque memory chequeData,
         SignOver[] memory signOverData
     ) view public returns (bool) {}
+
+    function _withdraw(uint amount, address from, address payable to) private {
+        if (amount == 0) revert ZeroAmount();
+        uint balance = addressToBalance[from];
+        if (amount > balance) revert NotEnoughBalance(balance, amount);
+
+        addressToBalance[from] = balance - amount;
+        (bool ok,) = to.call{value : amount}("");
+        if (!ok) revert TransferFailed();
+    }
 }
