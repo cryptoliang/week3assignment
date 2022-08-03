@@ -193,4 +193,33 @@ describe("ChequeBank", function () {
                 .to.be.revertedWithCustomError(chequeBank, "Unauthorized")
         });
     });
+
+    describe("revoke", () => {
+        let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress, depositAmount: BigNumber,
+            cheque: ChequeBank.ChequeStruct, chequeAmount: BigNumber
+        beforeEach(async function () {
+            ({chequeBank, deployer, userA} = await deployFixture());
+            depositAmount = ethers.utils.parseEther("1");
+            await chequeBank.deposit({value: depositAmount});
+            chequeAmount = ethers.utils.parseEther("0.2");
+            cheque = createCheque(chequeAmount, 0, 0, deployer.address, userA.address, chequeBank.address, deployer);
+        })
+
+        it("should reject redeem after revoke", async function () {
+            await chequeBank.revoke(cheque.chequeInfo.chequeId)
+            await expect(chequeBank.connect(userA).redeem(cheque))
+                .to.be.revertedWithCustomError(chequeBank, "RevokedCheque")
+        })
+
+        it("should not affect redeem if NOT revoked by payer", async function () {
+            await chequeBank.connect(userA).revoke(cheque.chequeInfo.chequeId)
+            await chequeBank.connect(userA).redeem(cheque)
+        })
+
+        it("should revert if the cheque is already redeemed", async function () {
+            await chequeBank.connect(userA).redeem(cheque)
+            await expect(chequeBank.revoke(cheque.chequeInfo.chequeId))
+                .to.be.revertedWithCustomError(chequeBank, "AlreadyRedeemed")
+        })
+    })
 })

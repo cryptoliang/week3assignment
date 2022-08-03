@@ -8,10 +8,14 @@ error NotEnoughBalance(uint balance, uint need);
 error InvalidSignature();
 error InvalidRedeemTiming(uint currentBlockNumber);
 error Unauthorized();
+error RevokedCheque();
+error AlreadyRedeemed();
 
 contract ChequeBank {
 
     mapping(address => uint) public addressToBalance;
+    mapping(bytes32 => mapping(address => bool)) public revocations;
+    mapping(bytes32 => bool) public redemptions;
 
     struct ChequeInfo {
         uint amount;
@@ -57,11 +61,17 @@ contract ChequeBank {
         if (msg.sender != chequeInfo.payee) revert Unauthorized();
         if (!isValidRedeemTiming(chequeInfo)) revert InvalidRedeemTiming(block.number);
         if (!isValidSig(chequeData)) revert InvalidSignature();
+        if (revocations[chequeInfo.chequeId][chequeInfo.payer]) revert RevokedCheque();
+
+        redemptions[chequeInfo.chequeId] = true;
 
         _withdraw(chequeInfo.amount, chequeInfo.payer, payable(chequeInfo.payee));
     }
 
-    function revoke(bytes32 chequeId) external {}
+    function revoke(bytes32 chequeId) external {
+        if (redemptions[chequeId]) revert AlreadyRedeemed();
+        revocations[chequeId][msg.sender] = true;
+    }
 
     function notifySignOver(
         SignOver memory signOverData
