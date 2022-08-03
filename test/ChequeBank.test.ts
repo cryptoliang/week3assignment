@@ -251,7 +251,7 @@ describe("ChequeBank", function () {
             cheque = createCheque(chequeAmount, 0, 0, deployer.address, userA.address, chequeBank.address, deployer);
         })
 
-        it("should refuse redemption after notify sign-over", async () => {
+        it("redeem() should revert after sign-over is notified", async () => {
             let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
             let signOver = createSignOver(1, chequeId, userA.address, userB.address, userA);
             await chequeBank.notifySignOver(signOver);
@@ -266,6 +266,21 @@ describe("ChequeBank", function () {
             signOver.signOverInfo.newPayee = userC.address;
             await expect(chequeBank.notifySignOver(signOver))
                 .to.be.revertedWithCustomError(chequeBank, "InvalidSignature")
+        });
+
+        it("should revert if the cheque is revoked by the sign-over's old payee", async () => {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOver = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            await chequeBank.connect(userA).revoke(chequeId);
+            await expect(chequeBank.notifySignOver(signOver))
+                .to.be.revertedWithCustomError(chequeBank, "RevokedCheque")
+        });
+
+        it("should not revert if the cheque is revoked other user", async () => {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOver = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            await chequeBank.connect(userB).revoke(chequeId);
+            await chequeBank.notifySignOver(signOver);
         });
     });
 })
