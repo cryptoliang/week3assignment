@@ -192,6 +192,12 @@ describe("ChequeBank", function () {
             await expect(chequeBank.redeem(cheque))
                 .to.be.revertedWithCustomError(chequeBank, "Unauthorized")
         });
+
+        it("should revert if the cheque is already redeemed", async function () {
+            await chequeBank.connect(userA).redeem(cheque)
+            await expect(chequeBank.connect(userA).redeem(cheque))
+                .to.be.revertedWithCustomError(chequeBank, "AlreadyRedeemed")
+        });
     });
 
     describe("revoke", () => {

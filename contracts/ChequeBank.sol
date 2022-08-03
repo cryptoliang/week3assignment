@@ -62,6 +62,7 @@ contract ChequeBank {
         if (!isValidRedeemTiming(chequeInfo)) revert InvalidRedeemTiming(block.number);
         if (!isValidSig(chequeData)) revert InvalidSignature();
         if (revocations[chequeInfo.chequeId][chequeInfo.payer]) revert RevokedCheque();
+        if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
 
         redemptions[chequeInfo.chequeId] = true;
 
