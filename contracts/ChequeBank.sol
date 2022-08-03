@@ -10,14 +10,14 @@ error InvalidRedeemTiming(uint currentBlockNumber);
 error Unauthorized();
 error RevokedCheque();
 error AlreadyRedeemed();
-error SignedOverCheque();
+error AlreadySignedOver();
 
 contract ChequeBank {
 
     mapping(address => uint) public addressToBalance;
     mapping(bytes32 => mapping(address => bool)) public revocations;
     mapping(bytes32 => bool) public redemptions;
-    mapping(bytes32 => bool) public signOvers;
+    mapping(bytes32 => mapping(uint8 => mapping(address => bool))) public signOvers;
 
     struct ChequeInfo {
         uint amount;
@@ -65,7 +65,7 @@ contract ChequeBank {
         if (!isValidChequeSig(chequeData)) revert InvalidSignature();
         if (revocations[chequeInfo.chequeId][chequeInfo.payer]) revert RevokedCheque();
         if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
-        if (signOvers[chequeInfo.chequeId]) revert SignedOverCheque();
+        if (signOvers[chequeInfo.chequeId][1][chequeInfo.payee]) revert AlreadySignedOver();
 
         redemptions[chequeInfo.chequeId] = true;
 
@@ -81,7 +81,9 @@ contract ChequeBank {
         SignOverInfo memory info = signOverData.signOverInfo;
         if (revocations[info.chequeId][info.oldPayee]) revert RevokedCheque();
         if (!isValidSignOverSig(signOverData)) revert InvalidSignature();
-        signOvers[info.chequeId] = true;
+        if (signOvers[info.chequeId][info.counter][info.oldPayee]) revert AlreadySignedOver();
+
+        signOvers[info.chequeId][info.counter][info.oldPayee] = true;
     }
 
     function redeemSignOver(
@@ -120,7 +122,7 @@ contract ChequeBank {
         return recoverSigner(hash, cheque.sig) == chequeInfo.payer;
     }
 
-    function isValidSignOverSig(SignOver memory signOver) private view returns (bool) {
+    function isValidSignOverSig(SignOver memory signOver) private pure returns (bool) {
         SignOverInfo memory info = signOver.signOverInfo;
         bytes4 MAGIC_NUMBER = 0xFFFFDEAD;
         bytes memory encodedData = abi.encodePacked(MAGIC_NUMBER, info.counter, info.chequeId, info.oldPayee, info.newPayee);

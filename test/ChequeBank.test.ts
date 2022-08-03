@@ -256,7 +256,21 @@ describe("ChequeBank", function () {
             let signOver = createSignOver(1, chequeId, userA.address, userB.address, userA);
             await chequeBank.notifySignOver(signOver);
             await expect(chequeBank.connect(userA).redeem(cheque))
-                .to.be.revertedWithCustomError(chequeBank, "SignedOverCheque")
+                .to.be.revertedWithCustomError(chequeBank, "AlreadySignedOver")
+        });
+
+        it("redeem() should success if the reported sign-over's old payee is NOT equal to cheque's payee", async () => {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOver = createSignOver(1, chequeId, userB.address, userC.address, userB);
+            await chequeBank.notifySignOver(signOver);
+            await chequeBank.connect(userA).redeem(cheque);
+        });
+
+        it("redeem() should success if the reported sign-over's old payee is equal to cheque's payee but the counter is not 1", async () => {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOver = createSignOver(2, chequeId, userA.address, userB.address, userA);
+            await chequeBank.notifySignOver(signOver);
+            await chequeBank.connect(userA).redeem(cheque);
         });
 
         it("should revert if signature is invalid", async () => {
@@ -276,11 +290,20 @@ describe("ChequeBank", function () {
                 .to.be.revertedWithCustomError(chequeBank, "RevokedCheque")
         });
 
-        it("should not revert if the cheque is revoked other user", async () => {
+        it("should success if the cheque is revoked by other user", async () => {
             let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
             let signOver = createSignOver(1, chequeId, userA.address, userB.address, userA);
             await chequeBank.connect(userB).revoke(chequeId);
             await chequeBank.notifySignOver(signOver);
+        });
+
+        it("should revert if the sign-over has same counter and old payee with a reported sign-over", async () => {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOver1 = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            let signOver2 = createSignOver(1, chequeId, userA.address, userC.address, userA);
+            await chequeBank.notifySignOver(signOver2);
+            await expect(chequeBank.notifySignOver(signOver1))
+                .to.be.revertedWithCustomError(chequeBank, "AlreadySignedOver");
         });
     });
 })
