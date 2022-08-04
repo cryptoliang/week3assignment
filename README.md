@@ -63,3 +63,21 @@ Gas cost after optimization (unstake after 10 blocks)
 |  WATER                    ·           -  ·          -  ·    1176356  ·        3.9 %  ·      19.64  │
 ·---------------------------|--------------|-------------|-------------|---------------|-------------·
 ```
+
+## Task 2: Smart Contract Development: Ethereum e-Cheque
+
+I finished all the required tasks include the additional tasks. Meet all the requirements with the given interface.
+
+I achieved a high test coverage. Please see the statistic below.  
+
+**Test Coverage**
+```
+-----------------|----------|----------|----------|----------|----------------|
+File             |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
+-----------------|----------|----------|----------|----------|----------------|
+ contracts/      |      100 |    97.44 |      100 |      100 |                |
+  ChequeBank.sol |      100 |    97.44 |      100 |      100 |                |
+-----------------|----------|----------|----------|----------|----------------|
+All files        |      100 |    97.44 |      100 |      100 |                |
+-----------------|----------|----------|----------|----------|----------------|
+```

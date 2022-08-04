@@ -335,6 +335,7 @@ describe("ChequeBank", function () {
             let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
             let signOverBC = createSignOver(2, chequeId, userB.address, userC.address, userB);
 
+            expect(await chequeBank.isChequeValid(userB.address, cheque, [signOverAB, signOverBC])).to.be.false;
             expect(await chequeBank.isChequeValid(userC.address, cheque, [signOverAB, signOverBC])).to.be.true;
             let userCBeforeBalance = await ethers.provider.getBalance(userC.address);
             let tx = await chequeBank.connect(userC).redeemSignOver(cheque, [signOverAB, signOverBC])
@@ -349,12 +350,20 @@ describe("ChequeBank", function () {
             expect(userCAfterBalance.add(transactionFee).sub(userCBeforeBalance)).equal(chequeAmount);
         });
 
+        it("should revert if balance is not enough", async function () {
+            cheque = createCheque(depositAmount.add(1), 0, 0, deployer.address, userA.address, chequeBank.address, deployer);
+            expect(await chequeBank.isChequeValid(userA.address, cheque, [])).to.be.false;
+            await expect(chequeBank.redeemSignOver(cheque, []))
+                .to.be.revertedWithCustomError(chequeBank, "NotEnoughBalance")
+                .withArgs(depositAmount, depositAmount.add(1))
+        });
+
         describe("verify cheque", () => {
             it("should revert if cheque signature is invalid", async function () {
                 // change the amount to make the signature invalid
                 cheque.chequeInfo.amount = chequeAmount.add(1);
 
-                expect(await chequeBank.isChequeValid(deployer.address, cheque, [])).to.be.false;
+                expect(await chequeBank.isChequeValid(userA.address, cheque, [])).to.be.false;
                 await expect(chequeBank.redeemSignOver(cheque, []))
                     .to.be.revertedWithCustomError(chequeBank, "InvalidSignature")
             });
@@ -364,7 +373,7 @@ describe("ChequeBank", function () {
                 let currBlock = await chequeBank.provider.getBlockNumber();
                 cheque = createCheque(chequeAmount, currBlock - 1, currBlock - 2, deployer.address, userA.address, chequeBank.address, deployer);
 
-                expect(await chequeBank.isChequeValid(deployer.address, cheque, [])).to.be.false;
+                expect(await chequeBank.isChequeValid(userA.address, cheque, [])).to.be.false;
                 await expect(chequeBank.redeemSignOver(cheque, []))
                     .to.be.revertedWithCustomError(chequeBank, "InvalidRedeemTiming")
                     .withArgs(currBlock + 1)
@@ -376,7 +385,7 @@ describe("ChequeBank", function () {
 
                 await mineNBlocks(5);
 
-                expect(await chequeBank.isChequeValid(deployer.address, cheque, [])).to.be.false;
+                expect(await chequeBank.isChequeValid(userA.address, cheque, [])).to.be.false;
                 await expect(chequeBank.redeemSignOver(cheque, []))
                     .to.be.revertedWithCustomError(chequeBank, "InvalidRedeemTiming")
                     .withArgs(currBlock + 6)
@@ -386,7 +395,7 @@ describe("ChequeBank", function () {
                 let currBlock = await chequeBank.provider.getBlockNumber();
                 cheque = createCheque(chequeAmount, currBlock + 5, currBlock + 15, deployer.address, userA.address, chequeBank.address, deployer);
 
-                expect(await chequeBank.isChequeValid(deployer.address, cheque, [])).to.be.false;
+                expect(await chequeBank.isChequeValid(userA.address, cheque, [])).to.be.false;
                 await expect(chequeBank.redeemSignOver(cheque, []))
                     .to.be.revertedWithCustomError(chequeBank, "InvalidRedeemTiming")
                     .withArgs(currBlock + 1)
@@ -394,7 +403,7 @@ describe("ChequeBank", function () {
 
             it("should revert if the cheque is already redeemed", async function () {
                 await chequeBank.connect(userA).redeem(cheque)
-                expect(await chequeBank.isChequeValid(deployer.address, cheque, [])).to.be.false;
+                expect(await chequeBank.isChequeValid(userA.address, cheque, [])).to.be.false;
                 await expect(chequeBank.redeemSignOver(cheque, []))
                     .to.be.revertedWithCustomError(chequeBank, "AlreadyRedeemed")
             });
