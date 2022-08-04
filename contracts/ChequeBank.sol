@@ -116,9 +116,11 @@ contract ChequeBank {
             prevPayee = orderedSignOvers[i].signOverInfo.newPayee;
         }
 
-        address lastPayer = len > 1 ? orderedSignOvers[len - 1].signOverInfo.oldPayee : chequeInfo.payer;
+        address lastPayer = len > 0 ? orderedSignOvers[len - 1].signOverInfo.oldPayee : chequeInfo.payer;
+        address lastPayee = len > 0 ? orderedSignOvers[len - 1].signOverInfo.newPayee : chequeInfo.payee;
 
         if (revocations[chequeInfo.chequeId][lastPayer]) revert RevokedCheque();
+        if (reportedSignOvers[chequeInfo.chequeId][uint8(len + 1)][lastPayee]) revert AlreadySignedOver();
 
         redemptions[chequeInfo.chequeId] = true;
     }

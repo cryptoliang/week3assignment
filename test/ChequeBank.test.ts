@@ -468,5 +468,26 @@ describe("ChequeBank", function () {
                 await expect(chequeBank.redeemSignOver(cheque, [signOverAB, signOverBC])).to.not.be.reverted
             });
         });
+
+        describe("reported sign-overs", () => {
+            it("should revert if there is a reported sign-over linked with the last input sign-over", async function () {
+                let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+                let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
+                let signOverBC = createSignOver(2, chequeId, userB.address, userC.address, userB);
+
+                await chequeBank.notifySignOver(signOverBC);
+                await expect(chequeBank.redeemSignOver(cheque, [signOverAB]))
+                    .to.be.revertedWithCustomError(chequeBank, "AlreadySignedOver");
+            });
+
+            it("should revert given empty sign-overs but the cheque is signed-over by cheque's payee", async function () {
+                let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+                let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
+
+                await chequeBank.notifySignOver(signOverAB);
+                await expect(chequeBank.redeemSignOver(cheque, []))
+                    .to.be.revertedWithCustomError(chequeBank, "AlreadySignedOver");
+            });
+        })
     });
 })
