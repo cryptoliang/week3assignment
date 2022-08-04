@@ -95,7 +95,6 @@ contract ChequeBank {
         if (!isValidChequeSig(chequeData)) revert InvalidSignature();
         if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
 
-
         (bool ok, address lastPayer, address lastPayee) = verifySignOverChain(chequeInfo, signOvers);
         if (!ok) revert InvalidSignOverChain();
 
@@ -104,6 +103,23 @@ contract ChequeBank {
 
         redemptions[chequeInfo.chequeId] = true;
         _withdraw(chequeInfo.amount, chequeInfo.payer, payable(lastPayee));
+    }
+
+    function isChequeValid(address payee, Cheque memory chequeData, SignOver[] memory signOvers) view public returns (bool) {
+        ChequeInfo memory chequeInfo = chequeData.chequeInfo;
+        if (!isValidRedeemTiming(chequeInfo)) return false;
+        if (!isValidChequeSig(chequeData)) return false;
+        if (redemptions[chequeInfo.chequeId]) return false;
+
+        (bool ok, address lastPayer, address lastPayee) = verifySignOverChain(chequeInfo, signOvers);
+        if (!ok) return false;
+
+        if (lastPayee != payee) return false;
+        if (revocations[chequeInfo.chequeId][lastPayer]) return false;
+        if (reportedSignOvers[chequeInfo.chequeId][uint8(signOvers.length + 1)][lastPayee]) return false;
+        if (chequeInfo.amount > addressToBalance[chequeInfo.payer]) return false;
+
+        return true;
     }
 
     function verifySignOverChain(ChequeInfo memory chequeInfo, SignOver[] memory signOvers)
@@ -134,12 +150,6 @@ contract ChequeBank {
         address lastPayee = len > 0 ? orderedSignOvers[len - 1].signOverInfo.newPayee : chequeInfo.payee;
         return (true, lastPayer, lastPayee);
     }
-
-    function isChequeValid(
-        address payee,
-        Cheque memory chequeData,
-        SignOver[] memory signOverData
-    ) view public returns (bool) {}
 
     function _withdraw(uint amount, address from, address payable to) private {
         if (amount == 0) revert ZeroAmount();
