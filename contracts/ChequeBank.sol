@@ -19,6 +19,7 @@ contract ChequeBank {
     mapping(bytes32 => mapping(address => bool)) public revocations;
     mapping(bytes32 => bool) public redemptions;
     mapping(bytes32 => mapping(uint8 => mapping(address => bool))) public reportedSignOvers;
+    uint constant MAX_SIGN_OVER_COUNT = 6;
 
     struct ChequeInfo {
         uint amount;
@@ -79,6 +80,7 @@ contract ChequeBank {
 
     function notifySignOver(SignOver memory signOverData) external {
         SignOverInfo memory info = signOverData.signOverInfo;
+        if (info.counter > MAX_SIGN_OVER_COUNT) revert MaxSignOverReached();
         if (revocations[info.chequeId][info.oldPayee]) revert RevokedCheque();
         if (redemptions[info.chequeId]) revert AlreadyRedeemed();
         if (!isValidSignOverSig(signOverData)) revert InvalidSignature();
@@ -95,7 +97,7 @@ contract ChequeBank {
         if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
 
         uint len = signOvers.length;
-        if (len > 6) revert MaxSignOverReached();
+        if (len > MAX_SIGN_OVER_COUNT) revert MaxSignOverReached();
 
         SignOver[] memory orderedSignOvers = new SignOver[](len);
 

@@ -308,6 +308,13 @@ describe("ChequeBank", function () {
             await expect(chequeBank.notifySignOver(signOver))
                 .to.be.revertedWithCustomError(chequeBank, "AlreadyRedeemed")
         });
+
+        it("should revert if the counter is over 6", async () => {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOver = createSignOver(7, chequeId, userA.address, userB.address, userA);
+            await expect(chequeBank.notifySignOver(signOver))
+                .to.be.revertedWithCustomError(chequeBank, "MaxSignOverReached")
+        });
     });
 
     describe("redeemSignOver", () => {
