@@ -81,3 +81,4 @@ File             |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
 All files        |      100 |    97.44 |      100 |      100 |                |
 -----------------|----------|----------|----------|----------|----------------|
 ```
+![Coverage](./coverage.png)
