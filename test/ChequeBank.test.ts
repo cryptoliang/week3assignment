@@ -438,5 +438,35 @@ describe("ChequeBank", function () {
             await expect(chequeBank.redeemSignOver(cheque, signOvers))
                 .to.be.revertedWithCustomError(chequeBank, "MaxSignOverReached")
         });
+
+        describe("revocations", () => {
+            it("should revert if revoked by the last sign-over's payer", async function () {
+                let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+                let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
+                let signOverBC = createSignOver(2, chequeId, userB.address, userC.address, userB);
+
+                await chequeBank.connect(userB).revoke(chequeId);
+                await expect(chequeBank.redeemSignOver(cheque, [signOverBC, signOverAB]))
+                    .to.be.revertedWithCustomError(chequeBank, "RevokedCheque")
+            });
+
+            it("should revert if revoked by cheque's payer when no sign-overs", async function () {
+                let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+
+                await chequeBank.revoke(chequeId);
+                await expect(chequeBank.redeemSignOver(cheque, []))
+                    .to.be.revertedWithCustomError(chequeBank, "RevokedCheque")
+            });
+
+            it("should success if revoked by previous payers", async function () {
+                let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+                let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
+                let signOverBC = createSignOver(2, chequeId, userB.address, userC.address, userB);
+
+                await chequeBank.revoke(chequeId);
+                await chequeBank.connect(userA).revoke(chequeId);
+                await expect(chequeBank.redeemSignOver(cheque, [signOverAB, signOverBC])).to.not.be.reverted
+            });
+        });
     });
 })

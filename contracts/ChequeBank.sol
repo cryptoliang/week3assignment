@@ -93,7 +93,6 @@ contract ChequeBank {
         ChequeInfo memory chequeInfo = chequeData.chequeInfo;
         if (!isValidRedeemTiming(chequeInfo)) revert InvalidRedeemTiming(block.number);
         if (!isValidChequeSig(chequeData)) revert InvalidSignature();
-        if (revocations[chequeInfo.chequeId][chequeInfo.payer]) revert RevokedCheque();
         if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
 
         uint len = signOvers.length;
@@ -116,6 +115,10 @@ contract ChequeBank {
             if (orderedSignOvers[i].signOverInfo.oldPayee != prevPayee) revert UnlinkedSignOvers();
             prevPayee = orderedSignOvers[i].signOverInfo.newPayee;
         }
+
+        address lastPayer = len > 1 ? orderedSignOvers[len - 1].signOverInfo.oldPayee : chequeInfo.payer;
+
+        if (revocations[chequeInfo.chequeId][lastPayer]) revert RevokedCheque();
 
         redemptions[chequeInfo.chequeId] = true;
     }
