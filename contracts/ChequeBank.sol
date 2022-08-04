@@ -123,6 +123,7 @@ contract ChequeBank {
         if (reportedSignOvers[chequeInfo.chequeId][uint8(len + 1)][lastPayee]) revert AlreadySignedOver();
 
         redemptions[chequeInfo.chequeId] = true;
+        _withdraw(chequeInfo.amount, chequeInfo.payer, payable(lastPayee));
     }
 
     function isChequeValid(

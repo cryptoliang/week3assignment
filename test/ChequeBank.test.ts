@@ -329,6 +329,24 @@ describe("ChequeBank", function () {
             cheque = createCheque(chequeAmount, 0, 0, deployer.address, userA.address, chequeBank.address, deployer);
         })
 
+        it("should redeem the valid sign over", async function () {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            let signOverBC = createSignOver(2, chequeId, userB.address, userC.address, userB);
+
+            let userCBeforeBalance = await ethers.provider.getBalance(userC.address);
+            let tx = await chequeBank.connect(userC).redeemSignOver(cheque, [signOverAB, signOverBC])
+            let txReceipt = await tx.wait(1);
+
+            let transactionFee = txReceipt.gasUsed.mul(txReceipt.effectiveGasPrice);
+            let userCAfterBalance = await ethers.provider.getBalance(userC.address);
+
+            const leftAmount = depositAmount.sub(chequeAmount);
+            expect(await ethers.provider.getBalance(chequeBank.address)).equal(leftAmount);
+            expect(await chequeBank.addressToBalance(deployer.address)).equal(leftAmount);
+            expect(userCAfterBalance.add(transactionFee).sub(userCBeforeBalance)).equal(chequeAmount);
+        });
+
         it("should revert if cheque signature is invalid", async function () {
             // change the amount to make the signature invalid
             cheque.chequeInfo.amount = chequeAmount.add(1);
