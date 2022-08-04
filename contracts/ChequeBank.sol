@@ -10,7 +10,7 @@ error InvalidRedeemTiming(uint currentBlockNumber);
 error RevokedCheque();
 error AlreadyRedeemed();
 error AlreadySignedOver();
-error UnlinkedSignOvers();
+error InvalidSignOverChain();
 error MaxSignOverReached();
 
 contract ChequeBank {
@@ -95,35 +95,44 @@ contract ChequeBank {
         if (!isValidChequeSig(chequeData)) revert InvalidSignature();
         if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
 
+
+        (bool ok, address lastPayer, address lastPayee) = verifySignOverChain(chequeInfo, signOvers);
+        if (!ok) revert InvalidSignOverChain();
+
+        if (revocations[chequeInfo.chequeId][lastPayer]) revert RevokedCheque();
+        if (reportedSignOvers[chequeInfo.chequeId][uint8(signOvers.length + 1)][lastPayee]) revert AlreadySignedOver();
+
+        redemptions[chequeInfo.chequeId] = true;
+        _withdraw(chequeInfo.amount, chequeInfo.payer, payable(lastPayee));
+    }
+
+    function verifySignOverChain(ChequeInfo memory chequeInfo, SignOver[] memory signOvers)
+        private pure returns (bool _ok, address _lastPayer, address _lastPayee) {
+
         uint len = signOvers.length;
-        if (len > MAX_SIGN_OVER_COUNT) revert MaxSignOverReached();
+        if (len > MAX_SIGN_OVER_COUNT) return (false, address(0), address(0));
 
         SignOver[] memory orderedSignOvers = new SignOver[](len);
 
         for (uint i = 0; i < len; i++) {
             uint8 counter = signOvers[i].signOverInfo.counter;
-            if (counter > len) revert UnlinkedSignOvers();
-            if (signOvers[i].signOverInfo.chequeId != chequeInfo.chequeId) revert UnlinkedSignOvers();
-            if (!isValidSignOverSig(signOvers[i])) revert InvalidSignature();
+            if (counter > len) return (false, address(0), address(0));
+            if (signOvers[i].signOverInfo.chequeId != chequeInfo.chequeId) return (false, address(0), address(0));
+            if (!isValidSignOverSig(signOvers[i])) return (false, address(0), address(0));
             orderedSignOvers[counter - 1] = signOvers[i];
         }
 
         address prevPayee = chequeInfo.payee;
 
         for (uint i = 0; i < len; i++) {
-            if (orderedSignOvers[i].signOverInfo.counter != i + 1) revert UnlinkedSignOvers();
-            if (orderedSignOvers[i].signOverInfo.oldPayee != prevPayee) revert UnlinkedSignOvers();
+            if (orderedSignOvers[i].signOverInfo.counter != i + 1) return (false, address(0), address(0));
+            if (orderedSignOvers[i].signOverInfo.oldPayee != prevPayee) return (false, address(0), address(0));
             prevPayee = orderedSignOvers[i].signOverInfo.newPayee;
         }
 
         address lastPayer = len > 0 ? orderedSignOvers[len - 1].signOverInfo.oldPayee : chequeInfo.payer;
         address lastPayee = len > 0 ? orderedSignOvers[len - 1].signOverInfo.newPayee : chequeInfo.payee;
-
-        if (revocations[chequeInfo.chequeId][lastPayer]) revert RevokedCheque();
-        if (reportedSignOvers[chequeInfo.chequeId][uint8(len + 1)][lastPayee]) revert AlreadySignedOver();
-
-        redemptions[chequeInfo.chequeId] = true;
-        _withdraw(chequeInfo.amount, chequeInfo.payer, payable(lastPayee));
+        return (true, lastPayer, lastPayee);
     }
 
     function isChequeValid(

@@ -397,10 +397,10 @@ describe("ChequeBank", function () {
             let signOverCD = createSignOver(3, chequeId, userC.address, userD.address, userC);
 
             await expect(chequeBank.redeemSignOver(cheque, [signOverAB, signOverCD]))
-                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignOverChain")
 
             await expect(chequeBank.redeemSignOver(cheque, [signOverBC, signOverCD]))
-                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignOverChain")
         });
 
         it("should revert if the sign-overs counter are not linked", async function () {
@@ -409,7 +409,7 @@ describe("ChequeBank", function () {
             let signOverBC = createSignOver(1, chequeId, userB.address, userC.address, userB);
 
             await expect(chequeBank.redeemSignOver(cheque, [signOverBC, signOverAB]))
-                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignOverChain")
         });
 
         it("should revert if the sign-overs address are not linked", async function () {
@@ -418,11 +418,11 @@ describe("ChequeBank", function () {
             let signOverCD = createSignOver(2, chequeId, userC.address, userD.address, userC);
 
             await expect(chequeBank.redeemSignOver(cheque, [signOverAB, signOverCD]))
-                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignOverChain")
 
             let signOverBC = createSignOver(1, chequeId, userB.address, userC.address, userB);
             await expect(chequeBank.redeemSignOver(cheque, [signOverBC]))
-                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignOverChain")
         });
 
         it("should revert if any sign-over's chequeId is not same as cheque", async function () {
@@ -432,7 +432,7 @@ describe("ChequeBank", function () {
             let signOverBC = createSignOver(2, invalidChequeId, userB.address, userC.address, userB);
 
             await expect(chequeBank.redeemSignOver(cheque, [signOverBC, signOverAB]))
-                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignOverChain")
         });
 
         it("should revert if any sign-over's signature is not valid", async function () {
@@ -441,7 +441,7 @@ describe("ChequeBank", function () {
             let signOverBC = createSignOver(2, chequeId, userB.address, userC.address, userC);
 
             await expect(chequeBank.redeemSignOver(cheque, [signOverBC, signOverAB]))
-                .to.be.revertedWithCustomError(chequeBank, "InvalidSignature")
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignOverChain")
         });
 
         it("should revert if length of sign-overs is over 6", async function () {
@@ -454,7 +454,7 @@ describe("ChequeBank", function () {
             }
 
             await expect(chequeBank.redeemSignOver(cheque, signOvers))
-                .to.be.revertedWithCustomError(chequeBank, "MaxSignOverReached")
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignOverChain")
         });
 
         describe("revocations", () => {
