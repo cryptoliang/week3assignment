@@ -36,8 +36,8 @@ describe("ChequeBank", function () {
     async function deployFixture() {
         const chequeBankFactory = await ethers.getContractFactory("ChequeBank");
         const chequeBank = await chequeBankFactory.deploy();
-        const [deployer, userA, userB, userC] = await ethers.getSigners();
-        return {chequeBank, deployer, userA, userB, userC};
+        const [deployer, userA, userB, userC, userD] = await ethers.getSigners();
+        return {chequeBank, deployer, userA, userB, userC, userD};
     }
 
     describe("deposit", function () {
@@ -312,9 +312,9 @@ describe("ChequeBank", function () {
 
     describe("redeemSignOver", () => {
         let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress, depositAmount: BigNumber,
-            cheque: ChequeBank.ChequeStruct, chequeAmount: BigNumber, userB: SignerWithAddress, userC: SignerWithAddress
+            cheque: ChequeBank.ChequeStruct, chequeAmount: BigNumber, userB: SignerWithAddress, userC: SignerWithAddress, userD: SignerWithAddress
         beforeEach(async function () {
-            ({chequeBank, deployer, userA, userB, userC} = await deployFixture());
+            ({chequeBank, deployer, userA, userB, userC, userD} = await deployFixture());
             depositAmount = ethers.utils.parseEther("1");
             await chequeBank.deposit({value: depositAmount});
             chequeAmount = ethers.utils.parseEther("0.2");
@@ -362,6 +362,60 @@ describe("ChequeBank", function () {
             await chequeBank.connect(userA).redeem(cheque)
             await expect(chequeBank.redeemSignOver(cheque, []))
                 .to.be.revertedWithCustomError(chequeBank, "AlreadyRedeemed")
+        });
+
+        it("should revert if one of the sign-overs is missing", async function () {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            let signOverBC = createSignOver(2, chequeId, userB.address, userC.address, userB);
+            let signOverCD = createSignOver(3, chequeId, userC.address, userD.address, userC);
+
+            await expect(chequeBank.redeemSignOver(cheque, [signOverAB, signOverCD]))
+                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+
+            await expect(chequeBank.redeemSignOver(cheque, [signOverBC, signOverCD]))
+                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+        });
+
+        it("should revert if the sign-overs counter are not linked", async function () {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            let signOverBC = createSignOver(1, chequeId, userB.address, userC.address, userB);
+
+            await expect(chequeBank.redeemSignOver(cheque, [signOverBC, signOverAB]))
+                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+        });
+
+        it("should revert if the sign-overs address are not linked", async function () {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            let signOverCD = createSignOver(2, chequeId, userC.address, userD.address, userC);
+
+            await expect(chequeBank.redeemSignOver(cheque, [signOverAB, signOverCD]))
+                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+
+            let signOverBC = createSignOver(1, chequeId, userB.address, userC.address, userB);
+            await expect(chequeBank.redeemSignOver(cheque, [signOverBC]))
+                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+        });
+
+        it("should revert if any sign-over's chequeId is not same as cheque", async function () {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let invalidChequeId = ethers.utils.randomBytes(32);
+            let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            let signOverBC = createSignOver(2, invalidChequeId, userB.address, userC.address, userB);
+
+            await expect(chequeBank.redeemSignOver(cheque, [signOverBC, signOverAB]))
+                .to.be.revertedWithCustomError(chequeBank, "UnlinkedSignOvers")
+        });
+
+        it("should revert if any sign-over's signature is not valid", async function () {
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOverAB = createSignOver(1, chequeId, userA.address, userB.address, userA);
+            let signOverBC = createSignOver(2, chequeId, userB.address, userC.address, userC);
+
+            await expect(chequeBank.redeemSignOver(cheque, [signOverBC, signOverAB]))
+                .to.be.revertedWithCustomError(chequeBank, "InvalidSignature")
         });
     });
 })

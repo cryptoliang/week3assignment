@@ -10,6 +10,7 @@ error InvalidRedeemTiming(uint currentBlockNumber);
 error RevokedCheque();
 error AlreadyRedeemed();
 error AlreadySignedOver();
+error UnlinkedSignOvers();
 
 contract ChequeBank {
 
@@ -85,12 +86,33 @@ contract ChequeBank {
         signOvers[info.chequeId][info.counter][info.oldPayee] = true;
     }
 
-    function redeemSignOver(Cheque memory chequeData, SignOver[] memory signOverData) external {
+    function redeemSignOver(Cheque memory chequeData, SignOver[] memory signOvers) external {
         ChequeInfo memory chequeInfo = chequeData.chequeInfo;
         if (!isValidRedeemTiming(chequeInfo)) revert InvalidRedeemTiming(block.number);
         if (!isValidChequeSig(chequeData)) revert InvalidSignature();
         if (revocations[chequeInfo.chequeId][chequeInfo.payer]) revert RevokedCheque();
         if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
+
+        uint len = signOvers.length;
+        SignOver[] memory orderedSignOvers = new SignOver[](len);
+
+        for (uint i = 0; i < len; i++) {
+            uint8 counter = signOvers[i].signOverInfo.counter;
+            if (counter > len) revert UnlinkedSignOvers();
+            if (signOvers[i].signOverInfo.chequeId != chequeInfo.chequeId) revert UnlinkedSignOvers();
+            if (!isValidSignOverSig(signOvers[i])) revert InvalidSignature();
+            orderedSignOvers[counter - 1] = signOvers[i];
+        }
+
+        address prevPayee = chequeInfo.payee;
+
+        for (uint i = 0; i < len; i++) {
+            if (orderedSignOvers[i].signOverInfo.counter != i + 1) revert UnlinkedSignOvers();
+            if (orderedSignOvers[i].signOverInfo.oldPayee != prevPayee) revert UnlinkedSignOvers();
+            prevPayee = orderedSignOvers[i].signOverInfo.newPayee;
+        }
+
+        redemptions[chequeInfo.chequeId] = true;
     }
 
     function isChequeValid(
