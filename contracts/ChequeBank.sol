@@ -11,13 +11,14 @@ error RevokedCheque();
 error AlreadyRedeemed();
 error AlreadySignedOver();
 error UnlinkedSignOvers();
+error MaxSignOverReached();
 
 contract ChequeBank {
 
     mapping(address => uint) public addressToBalance;
     mapping(bytes32 => mapping(address => bool)) public revocations;
     mapping(bytes32 => bool) public redemptions;
-    mapping(bytes32 => mapping(uint8 => mapping(address => bool))) public signOvers;
+    mapping(bytes32 => mapping(uint8 => mapping(address => bool))) public reportedSignOvers;
 
     struct ChequeInfo {
         uint amount;
@@ -64,7 +65,7 @@ contract ChequeBank {
         if (!isValidChequeSig(chequeData)) revert InvalidSignature();
         if (revocations[chequeInfo.chequeId][chequeInfo.payer]) revert RevokedCheque();
         if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
-        if (signOvers[chequeInfo.chequeId][1][chequeInfo.payee]) revert AlreadySignedOver();
+        if (reportedSignOvers[chequeInfo.chequeId][1][chequeInfo.payee]) revert AlreadySignedOver();
 
         redemptions[chequeInfo.chequeId] = true;
 
@@ -81,9 +82,9 @@ contract ChequeBank {
         if (revocations[info.chequeId][info.oldPayee]) revert RevokedCheque();
         if (redemptions[info.chequeId]) revert AlreadyRedeemed();
         if (!isValidSignOverSig(signOverData)) revert InvalidSignature();
-        if (signOvers[info.chequeId][info.counter][info.oldPayee]) revert AlreadySignedOver();
+        if (reportedSignOvers[info.chequeId][info.counter][info.oldPayee]) revert AlreadySignedOver();
 
-        signOvers[info.chequeId][info.counter][info.oldPayee] = true;
+        reportedSignOvers[info.chequeId][info.counter][info.oldPayee] = true;
     }
 
     function redeemSignOver(Cheque memory chequeData, SignOver[] memory signOvers) external {
@@ -94,6 +95,8 @@ contract ChequeBank {
         if (redemptions[chequeInfo.chequeId]) revert AlreadyRedeemed();
 
         uint len = signOvers.length;
+        if (len > 6) revert MaxSignOverReached();
+
         SignOver[] memory orderedSignOvers = new SignOver[](len);
 
         for (uint i = 0; i < len; i++) {

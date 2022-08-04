@@ -312,7 +312,8 @@ describe("ChequeBank", function () {
 
     describe("redeemSignOver", () => {
         let chequeBank: ChequeBank, deployer: SignerWithAddress, userA: SignerWithAddress, depositAmount: BigNumber,
-            cheque: ChequeBank.ChequeStruct, chequeAmount: BigNumber, userB: SignerWithAddress, userC: SignerWithAddress, userD: SignerWithAddress
+            cheque: ChequeBank.ChequeStruct, chequeAmount: BigNumber, userB: SignerWithAddress,
+            userC: SignerWithAddress, userD: SignerWithAddress
         beforeEach(async function () {
             ({chequeBank, deployer, userA, userB, userC, userD} = await deployFixture());
             depositAmount = ethers.utils.parseEther("1");
@@ -416,6 +417,19 @@ describe("ChequeBank", function () {
 
             await expect(chequeBank.redeemSignOver(cheque, [signOverBC, signOverAB]))
                 .to.be.revertedWithCustomError(chequeBank, "InvalidSignature")
+        });
+
+        it("should revert if length of sign-overs is over 6", async function () {
+            let accounts = await ethers.getSigners();
+            let cheque = createCheque(chequeAmount, 0, 0, accounts[0].address, accounts[1].address, chequeBank.address, deployer);
+            let chequeId = <BytesLike>cheque.chequeInfo.chequeId;
+            let signOvers: ChequeBank.SignOverStruct[] = [];
+            for (let i = 1; i <= 7; i++) {
+                signOvers.push(createSignOver(i, chequeId, accounts[i].address, accounts[i + 1].address, accounts[i]))
+            }
+
+            await expect(chequeBank.redeemSignOver(cheque, signOvers))
+                .to.be.revertedWithCustomError(chequeBank, "MaxSignOverReached")
         });
     });
 })
