@@ -1,4 +1,4 @@
-# Week 2 Assignment
+# Week 3 Assignment
 
 ## Task 1: Smart Contract Optimization
 Gas cost before optimization (unstake after 10 blocks)
